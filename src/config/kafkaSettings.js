@@ -1,24 +1,44 @@
 const kafka = require("kafka-node");
+const { getAllOrders } = require("../helper/orderDetails"); // Assuming orderService exports the function
 
 const kafkaClient = new kafka.KafkaClient({ kafkaHost: `${process.env.KAFKA_HOST}` });
 
-// Kafka Producer
-const producer = new kafka.Producer(kafkaClient);
-producer.on("ready", () => {
-    console.log("Kafka Producer is ready.");
+// Kafka Producer (for delegating updates)
+const delegateproducer = new kafka.Producer(kafkaClient);
+delegateproducer.on("ready", () => {
+    console.log("Kafka Producer is connected and ready.");
 });
-producer.on("error", (err) => {
+delegateproducer.on("error", (err) => {
     console.error("Kafka Producer Error:", err);
 });
 
-// Kafka Consumer
-const consumer = new kafka.Consumer(
+// Kafka Consumer (for consuming updates related to delegates)
+const delegateconsumer = new kafka.Consumer(
     kafkaClient,
     [{ topic: "delegateUpdates", partition: 0 }],
     { autoCommit: true }
 );
-consumer.on("error", (err) => {
+delegateconsumer.on("error", (err) => {
     console.error("Kafka Consumer Error:", err);
 });
 
-module.exports = { producer, consumer };
+// Kafka Producer (for order updates)
+const orderproducer = new kafka.Producer(kafkaClient);
+orderproducer.on("ready", () => {
+    console.log("Order Kafka Producer is ready.");
+});
+orderproducer.on("error", (err) => {
+    console.error("Order Kafka Producer Error:", err);
+});
+
+// Kafka Consumer (for consuming order updates)
+const orderconsumer = new kafka.Consumer(
+    kafkaClient,
+    [{ topic: "orderUpdates", partition: 0 }],
+    { autoCommit: true }
+);
+orderconsumer.on("error", (err) => {
+    console.error("Order Kafka Consumer Error:", err);
+});
+
+module.exports = { delegateproducer, delegateconsumer, orderproducer, orderconsumer };
