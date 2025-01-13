@@ -45,13 +45,19 @@ delegateconsumer.on("error", (err) => {
 io.on("connection", (socket) => {
     console.log("Client connected:", socket.id);
 
-    // Listen for location updates
+    // Listen for location updates from client
     socket.on("updateLocation", async (data) => {
         console.log("Location update received:", data);
 
         const { user_id, latitude, longitude } = data;
 
-        // Step 1: Update the location in the database for the given user_id
+        // Ensure the user ID and coordinates are valid
+        if (!user_id || !latitude || !longitude) {
+            console.log("Invalid location data:", data);
+            return;
+        }
+
+        // Step 1: Update location in the database
         try {
             const primaryKeyData = await Delegate.findByPk(user_id);
             if (!primaryKeyData) {
@@ -71,7 +77,7 @@ io.on("connection", (socket) => {
             console.error("Error updating location in database:", error.message);
         }
 
-        // Step 2: Send the location data to Kafka
+        // Step 2: Send location data to Kafka (Optional step for background processing)
         const payload = [{ topic: "delegateUpdates", messages: JSON.stringify(data) }];
         delegateproducer.send(payload, (err, result) => {
             if (err) {
@@ -85,8 +91,8 @@ io.on("connection", (socket) => {
     // Function to send order data to Kafka and emit to frontend
     const sendOrderDataToKafkaAndSocket = async () => {
         try {
-            // Fetch orders (You may want to fetch them in smaller chunks for scalability)
-            const orders = await getAllOrders();
+            // Fetch orders from the database (optional - you can adjust this as needed)
+            const orders = await getAllOrders(); // Assume you have a function to fetch orders
 
             // Send orders data to Kafka
             const payload = [{
@@ -109,14 +115,14 @@ io.on("connection", (socket) => {
         }
     };
 
-    // Call sendOrderDataToKafkaAndSocket every 5 seconds to send updates
+    // Periodically send order data to client and Kafka every 5 seconds
     const orderInterval = setInterval(sendOrderDataToKafkaAndSocket, 5000);
 
-    // Kafka Consumer for Order Updates
+    // Kafka Consumer to listen for incoming order updates
     orderconsumer.on("message", (message) => {
         console.log("Received order data from Kafka:", message.value);
         try {
-            // Emit the received message to the frontend
+            // Parse the received order data and emit to frontend
             const orderData = JSON.parse(message.value);
             socket.emit("orderData", orderData); // Send data to client
         } catch (error) {
@@ -124,10 +130,10 @@ io.on("connection", (socket) => {
         }
     });
 
-    // Handle socket disconnect
+    // Handle client disconnection
     socket.on("disconnect", () => {
         console.log("Client disconnected:", socket.id);
-        clearInterval(orderInterval); // Clean up interval when client disconnects
+        clearInterval(orderInterval); // Clean up interval when the client disconnects
     });
 });
 
