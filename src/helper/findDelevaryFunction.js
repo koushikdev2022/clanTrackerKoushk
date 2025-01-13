@@ -67,12 +67,48 @@ const findDelevaryFunction = async () => {
         });
 
         console.log("Nearby Delegates:", nearbyDelegates);
+
+        // Step 6: Notify clients within the 5 km radius
+        nearbyDelegates.forEach((delegate) => {
+            // Loop over each connected socket and check if it matches the delegate's location
+            clients.forEach((socket) => {
+                if (socket.latitude && socket.longitude) {
+                    const delegateDistance = getDistance(
+                        socket.latitude,
+                        socket.longitude,
+                        delegate.latitude,
+                        delegate.longitude
+                    );
+
+                    if (delegateDistance <= searchRadius) {
+                        console.log(`Sending "Hi" to client ${socket.id} (within 5 km)`);
+                        socket.emit("notification", "Hi");
+                    }
+                }
+            });
+        });
     } catch (error) {
         console.error("Error fetching nearby delegates:", error.message);
     }
 };
 
+// Distance calculation function between two points
+const getDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Result in kilometers
+};
+
+module.exports = { findDelevaryFunction };
 
 
-module.exports = {findDelevaryFunction}
+
+
+
 // findDelevaryFunction();
