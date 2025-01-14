@@ -1,5 +1,5 @@
 const express = require("express");
-const http = require("http"); // Use http for combining express and socket.io
+const http = require("http"); 
 const db = require("./src/config/db");
 const app = express();
 require("dotenv").config();
@@ -14,9 +14,8 @@ const {getAllOrders} = require("./src/helper/orderDetails")
 
 const { Delegate } = require("./src/models")
 
-const port = process.env.PORT || 3014;  // Fallback to 3014 if PORT isn't specified in .env
+const port = process.env.PORT || 3014;  
 
-// Middleware
 app.use(cors({
     origin: "*",  
     methods: ["GET", "POST"]
@@ -26,11 +25,11 @@ app.use(express.json({ limit: "400mb" }));
 app.use(express.static(path.join(__dirname, "/public/")));
 app.use(load);
 
-// Create HTTP server
-const server = http.createServer(app);
-const io = socketSettings.initSocket(server); // Initialize Socket.IO with HTTP server
 
-// Kafka producer readiness
+const server = http.createServer(app);
+const io = socketSettings.initSocket(server); 
+
+
 delegateproducer.on("ready", () => {
     console.log("Kafka Producer is connected and ready.");
 });
@@ -39,25 +38,30 @@ delegateconsumer.on("error", (err) => {
     console.error("Producer error:", err);
 });
 
-// Socket.IO connection handling
+
 
 
 io.on("connection", (socket) => {
     console.log("Client connected:", socket.id);
 
-    // Listen for location updates from client
+    socket.on('delegateInfo', (data) => {
+        const { delegate_id } = data;
+        console.log('Received delegate_id:', delegate_id);
+
+        // Store delegate_id in socket data, which can be used later
+        socket.delegate_id = delegate_id;
+    });
     socket.on("updateLocation", async (data) => {
         console.log("Location update received:", data);
 
         const { user_id, latitude, longitude } = data;
 
-        // Ensure the user ID and coordinates are valid
         if (!user_id || !latitude || !longitude) {
             console.log("Invalid location data:", data);
             return;
         }
 
-        // Step 1: Update location in the database
+       
         try {
             const primaryKeyData = await Delegate.findByPk(user_id);
             if (!primaryKeyData) {
@@ -66,8 +70,8 @@ io.on("connection", (socket) => {
             }
 
             const updatedDelegate = await primaryKeyData.update({
-                latitude: latitude, // New latitude
-                longitude: longitude, // New longitude
+                latitude: latitude, 
+                longitude: longitude, 
             });
 
             if (updatedDelegate) {
@@ -77,7 +81,7 @@ io.on("connection", (socket) => {
             console.error("Error updating location in database:", error.message);
         }
 
-        // Step 2: Send location data to Kafka (Optional step for background processing)
+        
         const payload = [{ topic: "delegateUpdates", messages: JSON.stringify(data) }];
         delegateproducer.send(payload, (err, result) => {
             if (err) {
@@ -88,16 +92,16 @@ io.on("connection", (socket) => {
         });
     });
 
-    // Function to send order data to Kafka and emit to frontend
+   
     const sendOrderDataToKafkaAndSocket = async () => {
         try {
-            // Fetch orders from the database (optional - you can adjust this as needed)
-            const orders = await getAllOrders(); // Assume you have a function to fetch orders
+            const { delegate_id } = socket;
+            const orders = await getAllOrders(delegate_id); 
 
-            // Send orders data to Kafka
+       
             const payload = [{
                 topic: "orderUpdates",
-                messages: [{ value: JSON.stringify(orders) }] // Send orders data as a Kafka message
+                messages: [{ value: JSON.stringify(orders) }] 
             }];
             
             delegateproducer.send(payload, (err, result) => {
@@ -108,36 +112,36 @@ io.on("connection", (socket) => {
                 }
             });
 
-            // Emit orders data to the connected frontend
+          
             socket.emit("orderData", orders);
         } catch (error) {
             console.error("Error sending order data to Kafka or emitting to Socket:", error.message);
         }
     };
 
-    // Periodically send order data to client and Kafka every 5 seconds
+
     const orderInterval = setInterval(sendOrderDataToKafkaAndSocket, 5000);
 
-    // Kafka Consumer to listen for incoming order updates
+   
     orderconsumer.on("message", (message) => {
         console.log("Received order data from Kafka:", message.value);
         try {
-            // Parse the received order data and emit to frontend
+          
             const orderData = JSON.parse(message.value);
-            socket.emit("orderData", orderData); // Send data to client
+            socket.emit("orderData", orderData); 
         } catch (error) {
             console.error("Error parsing and sending order data to client:", error.message);
         }
     });
 
-    // Handle client disconnection
+  
     socket.on("disconnect", () => {
         console.log("Client disconnected:", socket.id);
-        clearInterval(orderInterval); // Clean up interval when the client disconnects
+        clearInterval(orderInterval); 
     });
 });
 
-// Start server
+
 server.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
 });

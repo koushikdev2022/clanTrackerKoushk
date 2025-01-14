@@ -68,7 +68,7 @@
 </head>
 <body>
 
-<h1>Socket.IO Client</h1>
+<h1>Socket.IO Client 3</h1>
 
 <!-- Location Updates -->
 <h2>Location Updates</h2>
@@ -85,6 +85,8 @@
     // Listen for successful connection
     socket.on('connect', () => {
         console.log('Connected to Socket.IO server:', socket.id);
+        const delegate_id = 3; 
+        socket.emit('delegateInfo', { delegate_id });
     });
 
     // Listen for location updates broadcasted from the server
@@ -140,7 +142,7 @@
             // Assuming `order.Product` contains product details like name and image
             listItem.innerHTML = `
                 <img src="${order.Product?.ProductImage || 'https://via.placeholder.com/100'}" alt="${order.Product?.product_name || 'No Image'}">
-                <p><strong>${index + 1}</strong></p>
+                <p><strong>${order.id}</strong></p>
                 <p><strong>${order.Product?.product_name || 'Product Name'}</strong></p>
                 <p>Order ID: ${order.order_id}</p>
                 <p>Quantity: ${order.quantity}</p>
