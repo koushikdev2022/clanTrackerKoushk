@@ -6,12 +6,13 @@ require("dotenv").config();
 const cors = require("cors");
 const path = require("path");
 const load = require("./src/router/load");
-const { delegateproducer, delegateconsumer, orderproducer, orderconsumer,userproducer,userconsumer } = require("./src/config/kafkaSettings");
+const { delegateproducer, delegateconsumer, orderproducer, orderconsumer,userproducer,userconsumer,userIdproducer,userIdconsumer } = require("./src/config/kafkaSettings");
 const socketSettings = require("./src/config/socketSettings");
 
 
 const { getAllOrders } = require("./src/helper/orderDetails") 
 const { userOrder } = require("./src/helper/userOrder")
+const { liveLocationUpdate } = require("./src/helper/liveLocationUpdate")
 
 const { Delegate } = require("./src/models")
 
@@ -54,6 +55,11 @@ io.on("connection", (socket) => {
         const { user_id } = data;
         console.log('Received user_id:', user_id);
         socket.user_id = user_id;
+    });
+    socket.on('userLiveInfo', (data) => {
+        const { map_id } = data;
+        console.log('Received user_id:', map_id);
+        socket.map_id = map_id;
     });
     socket.on("updateLocation", async (data) => {
         console.log("Location update received:", data);
@@ -100,7 +106,7 @@ io.on("connection", (socket) => {
     const sendOrderDataToUserKafkaAndSocket = async () => {
         try {
             const { user_id } = socket;
-            console.log(user_id,"userogogogog")
+       
             const userOrders = await userOrder(user_id); 
 
        
@@ -119,6 +125,34 @@ io.on("connection", (socket) => {
 
           
             socket.emit("userUpdate", userOrders);
+        } catch (error) {
+            console.error("Error sending order data to Kafka or emitting to Socket:", error.message);
+        }
+    };
+
+
+    const sendOrderDataToUserLocationKafkaAndSocket = async () => {
+        try {
+            const { map_id } = socket;
+          
+            const userLocation = await liveLocationUpdate(map_id); 
+         
+       
+            const payload = [{
+                topic: "userIdUpdate",
+                messages: [{ value: JSON.stringify(userLocation) }] 
+            }];
+            
+            userIdproducer.send(payload, (err, result) => {
+                if (err) {
+                    console.error("Error sending order data to Kafka:", err);
+                } else {
+                    console.log("Order data sent to Kafka:", result);
+                }
+            });
+
+          
+            socket.emit("userIdUpdate", userLocation);
         } catch (error) {
             console.error("Error sending order data to Kafka or emitting to Socket:", error.message);
         }
@@ -151,7 +185,7 @@ io.on("connection", (socket) => {
     };
     const orderInterval = setInterval(sendOrderDataToKafkaAndSocket, 5000);
     const useInterval = setInterval(sendOrderDataToUserKafkaAndSocket, 5000);
-
+    const useLiveUpdateInterval = setInterval(sendOrderDataToUserLocationKafkaAndSocket, 1000);
    
     orderconsumer.on("message", (message) => {
         console.log("Received order data from Kafka:", message.value);
@@ -163,7 +197,16 @@ io.on("connection", (socket) => {
             console.error("Error parsing and sending order data to client:", error.message);
         }
     });
-    
+    userIdconsumer.on("message", (message) => {
+        console.log("Received order data from Kafka:", message.value);
+        try {
+          
+            const userLocationData = JSON.parse(message.value);
+            socket.emit("orderData", userLocationData); 
+        } catch (error) {
+            console.error("Error parsing and sending order data to client:", error.message);
+        }
+    });
 
     userconsumer.on("message", (message) => {
         console.log("Received order data from Kafka:", message.value);
@@ -180,6 +223,7 @@ io.on("connection", (socket) => {
         console.log("Client disconnected:", socket.id);
         clearInterval(orderInterval); 
         clearInterval(useInterval); 
+        clearInterval(useLiveUpdateInterval);
     });
 });
 

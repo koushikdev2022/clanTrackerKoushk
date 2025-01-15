@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Delivery Boy Location</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .info-box {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 10px 20px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+            font-size: 14px;
+            border-radius: 5px;
+        }
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCCQry1jnMQwz_GOOhEewP_uPOQGzFCJRU"></script>
+    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+</head>
+<body>
+    <div id="loading" style="padding: 20px;"></div>
+         <div id="map"></div>
+    </div>
+    <script>
+        let map;
+        const markers = {}; // Store references to all markers by ID for update/removal
+    
+        // Initialize the map
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 22.58431884062898, lng: 88.43580331530566 }, // Delivery location
+                zoom: 13,
+            });
+    
+            // Create the main marker (red dot)
+            const mainMarker = new google.maps.Marker({
+                position: { lat: 22.58431884062898, lng: 88.43580331530566 }, // Main marker location
+                map: map,
+                title: "Main Location",
+                icon: {
+                    url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png", // Red dot icon
+                    scaledSize: new google.maps.Size(40, 40), // Optional size adjustment
+                },
+            });
+    
+            // Create the delivery marker (bike)
+            const deliveryMarker = new google.maps.Marker({
+                position: { lat: 22.567950495996552, lng: 88.37094519498775 }, // Delivery marker location
+                map: map,
+                title: "Delivery Location",
+                icon: {
+                    url: "http://maps.google.com/mapfiles/ms/icons/red-dot.png", // URL for a bike icon
+                    scaledSize: new google.maps.Size(40, 40), // Optional size adjustment
+                },
+            });
+        }
+    
+        // Update or add a marker
+        function updateMarker(id, location) {
+            if (markers[id]) {
+                // Update existing marker position
+                markers[id].setPosition(new google.maps.LatLng(location.latitude, location.longitude));
+            } else {
+                // Create new marker if none exists (bike icon for delivery persons)
+                markers[id] = new google.maps.Marker({
+                    position: new google.maps.LatLng(location.latitude, location.longitude),
+                    map: map,
+                    title: `Delivery Person ${id}`,
+                    icon: {
+                        url: "https://img.freepik.com/free-vector/isolated-scooter-cartoon-design_1308-107030.jpg?t=st=1736939023~exp=1736942623~hmac=5936f6721cc7f0a9a2f939847af27e4d93345b541e32c17bf17ae581f848d45e&w=740", // Bike icon
+                        scaledSize: new google.maps.Size(40, 40),
+                    },
+                });
+            }
+        }
+    
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+    
+            const socket = io('http://localhost:3014'); // Replace with your backend URL and port
+            socket.on('connect', () => {
+                console.log('Connected to Socket.IO server:', socket.id);
+                const map_id = 4; // Replace this with an appropriate value to listen to the right map data
+                socket.emit('userLiveInfo', { map_id });
+            });
+    
+            // Listen for live location updates for userId
+            socket.on('userIdUpdate', (userLocations) => {
+                try {
+                    // Check if userLocations is a string and needs parsing
+                    let locations;
+                    if (typeof userLocations === 'string') {
+                        locations = JSON.parse(userLocations);
+                    } else {
+                        locations = userLocations; // It's already an object
+                    }
+
+                    // Loop through the locations and update markers
+                    locations.forEach((loc) => {
+                        console.log(loc)
+                        updateMarker(loc.map_id, loc); // Update or add a marker
+                    });
+                } catch (error) {
+                    console.error('Error parsing location data:', error);
+                }
+            });
+    
+            socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+                // Optionally clear all markers on disconnect
+                Object.keys(markers).forEach((id) => {
+                    markers[id].setMap(null);
+                    delete markers[id];
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -102,13 +102,68 @@
     });
 
     // Function to simulate location update
-    const getLocation = () => {
-        return {
-            latitude: 40.7128 + Math.random() * 0.01, // Randomized for demonstration
-            longitude: -74.0060 + Math.random() * 0.01,
-            user_id: 1
-        };
+    const getLocation = (() => {
+    // Starting and ending coordinates
+    const start = { latitude: 22.567950495996552, longitude: 88.37094519498775 };
+    const end = { latitude: 22.58431884062898, longitude: 88.43580331530566 };
+
+    const speedInKmPerHour = 80; // 30 km/h
+    const updateIntervalInMs = 1000; // Update every 1 second
+
+    // Helper function: Calculate the distance (in km) between two coordinates using the Haversine formula
+    function haversine(lat1, lon1, lat2, lon2) {
+        const toRad = (angle) => (angle * Math.PI) / 180;
+        const earthRadiusKm = 6371;
+
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const lat1Rad = toRad(lat1);
+        const lat2Rad = toRad(lat2);
+
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1Rad) * Math.cos(lat2Rad);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return earthRadiusKm * c; // Distance in km
+    }
+
+    // Total distance in km between start and end points
+    const totalDistanceKm = haversine(start.latitude, start.longitude, end.latitude, end.longitude);
+
+    // Distance covered per update (distance = speed * time)
+    const distancePerUpdateKm = (speedInKmPerHour * updateIntervalInMs) / (60 * 60 * 1000); // Convert km/h to km per ms
+
+    // Calculate the fractional steps for latitude and longitude per update
+    const stepFraction = distancePerUpdateKm / totalDistanceKm;
+    const stepLat = (end.latitude - start.latitude) * stepFraction;
+    const stepLng = (end.longitude - start.longitude) * stepFraction;
+
+    let current = { ...start };
+    let userId = 1;
+
+    return () => {
+        const remainingDistance = haversine(
+            current.latitude,
+            current.longitude,
+            end.latitude,
+            end.longitude
+        );
+
+        if (remainingDistance > distancePerUpdateKm) {
+            // Update the position
+            current.latitude += stepLat;
+            current.longitude += stepLng;
+        } else {
+            // Finalize the position at the endpoint
+            current = { ...end };
+        }
+
+        return { latitude: current.latitude, longitude: current.longitude, user_id: userId };
     };
+})();
+
+
 
     // Send location updates continuously every 1 second
     setInterval(() => {

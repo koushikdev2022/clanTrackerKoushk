@@ -61,5 +61,24 @@ userconsumer.on("error",(err)=>{
      console.error("User kafka consumer error", err)
 });
 
+const userIdproducer = new kafka.Producer(kafkaClient);
 
-module.exports = { delegateproducer, delegateconsumer, orderproducer, orderconsumer,userproducer,userconsumer };
+userIdproducer.on("ready",()=>{
+    console.log("User Id kafka Producer is ready");
+})
+
+userIdproducer.on("error",(err)=>{
+    console.log("User Id kafka Producer Error:", err);
+});
+
+const userIdconsumer = new kafka.Consumer(
+    kafkaClient,
+    [{topic:"userIdUpdate",position:0}],
+    {autoCommit:true}
+);
+
+userIdconsumer.on("error",(err)=>{
+     console.error("User Id kafka consumer error", err)
+});
+
+module.exports = { delegateproducer, delegateconsumer, orderproducer, orderconsumer,userproducer,userconsumer,userIdproducer, userIdconsumer};
