@@ -37,7 +37,7 @@ const userOrder = async (user_id) => {
         }) 
         return userDetails;
     } catch (error) {
-        console.error("Error fetching orders:", error.message);
+        console.error("Error fetching user:", error.message);
         throw error;
     }
 };

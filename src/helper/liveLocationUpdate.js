@@ -18,7 +18,7 @@ const liveLocationUpdate = async (id) => {
         locationUpdateDelegate.push(locationUpdate?.Delegate)
         return locationUpdateDelegate;
     } catch (error) {
-        console.error("Error fetching orders:", error.message);
+        console.error("Error fetching live:", error.message);
         throw error;
     }
 };

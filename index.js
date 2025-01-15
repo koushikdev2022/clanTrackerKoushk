@@ -117,16 +117,16 @@ io.on("connection", (socket) => {
             
             userproducer.send(payload, (err, result) => {
                 if (err) {
-                    console.error("Error sending order data to Kafka:", err);
+                    console.error("Error sending user data to Kafka:", err);
                 } else {
-                    console.log("Order data sent to Kafka:", result);
+                    console.log("user data sent to Kafka:", result);
                 }
             });
 
           
             socket.emit("userUpdate", userOrders);
         } catch (error) {
-            console.error("Error sending order data to Kafka or emitting to Socket:", error.message);
+            console.error("Error sending user data to Kafka or emitting to Socket:", error.message);
         }
     };
 
@@ -145,16 +145,16 @@ io.on("connection", (socket) => {
             
             userIdproducer.send(payload, (err, result) => {
                 if (err) {
-                    console.error("Error sending order data to Kafka:", err);
+                    console.error("Error sending live data to Kafka:", err);
                 } else {
-                    console.log("Order data sent to Kafka:", result);
+                    console.log("live data sent to Kafka:", result);
                 }
             });
 
           
             socket.emit("userIdUpdate", userLocation);
         } catch (error) {
-            console.error("Error sending order data to Kafka or emitting to Socket:", error.message);
+            console.error("Error sending live  data to Kafka or emitting to Socket:", error.message);
         }
     };
 
@@ -198,24 +198,24 @@ io.on("connection", (socket) => {
         }
     });
     userIdconsumer.on("message", (message) => {
-        console.log("Received order data from Kafka:", message.value);
+        console.log("Received live data from Kafka:", message.value);
         try {
           
             const userLocationData = JSON.parse(message.value);
-            socket.emit("orderData", userLocationData); 
+            socket.emit("liveData", userLocationData); 
         } catch (error) {
-            console.error("Error parsing and sending order data to client:", error.message);
+            console.error("Error parsing and sending live data to client:", error.message);
         }
     });
 
     userconsumer.on("message", (message) => {
-        console.log("Received order data from Kafka:", message.value);
+        console.log("Received user data from Kafka:", message.value);
         try {
           
             const userData = JSON.parse(message.value);
             socket.emit("userUpdate", userData); 
         } catch (error) {
-            console.error("Error parsing and sending order data to client:", error.message);
+            console.error("Error parsing and sending user data to client:", error.message);
         }
     });
   
