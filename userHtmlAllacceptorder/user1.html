@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Update</title>
+    <script src="https://cdn.socket.io/4.5.1/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #userUpdates {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            max-height: 300px;
+            overflow-y: scroll;
+        }
+    </style>
+</head>
+<body>
+    <h1>User Updates 1</h1>
+
+    <div id="userUpdates">
+        <h3>Updates</h3>
+        <ul id="updatesList"></ul>
+    </div>
+
+    <script>
+        // Initialize Socket.IO client
+        const socket = io('http://localhost:3014'); // Replace with your backend server URL if different
+    
+        // Reference elements
+        const updatesList = document.getElementById('updatesList');
+        const updatesSet = new Set(); // To keep track of unique updates
+    
+        // Listen for userUpdate events
+        socket.on('userUpdate', (data) => {
+            console.log('Received userUpdate data:', data);
+    
+            // Convert data to a string for uniqueness comparison
+            const dataString = JSON.stringify(data);
+    
+            // Check if the data is already present
+            if (!updatesSet.has(dataString)) {
+                updatesSet.add(dataString); // Add to the set
+                const listItem = document.createElement('li');
+                listItem.textContent = dataString;
+                updatesList.appendChild(listItem); // Append to the DOM
+            } else {
+                console.log('Duplicate update ignored.');
+            }
+        });
+    
+        // Connection and disconnection events
+        socket.on('connect', () => {
+            socket.emit('userInfo', { user_id: 1 });
+            console.log('Connected to the server:', socket.id);
+        });
+    
+        socket.on('disconnect', () => {
+            console.log('Disconnected from the server.');
+        });
+    </script>
+    
+</body>
+</html>

@@ -6,11 +6,12 @@ require("dotenv").config();
 const cors = require("cors");
 const path = require("path");
 const load = require("./src/router/load");
-const { delegateproducer, delegateconsumer, orderproducer, orderconsumer } = require("./src/config/kafkaSettings");
+const { delegateproducer, delegateconsumer, orderproducer, orderconsumer,userproducer,userconsumer } = require("./src/config/kafkaSettings");
 const socketSettings = require("./src/config/socketSettings");
 
 
-const {getAllOrders} = require("./src/helper/orderDetails") 
+const { getAllOrders } = require("./src/helper/orderDetails") 
+const { userOrder } = require("./src/helper/userOrder")
 
 const { Delegate } = require("./src/models")
 
@@ -48,6 +49,11 @@ io.on("connection", (socket) => {
         const { delegate_id } = data;
         console.log('Received delegate_id:', delegate_id);
         socket.delegate_id = delegate_id;
+    });
+    socket.on('userInfo', (data) => {
+        const { user_id } = data;
+        console.log('Received user_id:', user_id);
+        socket.user_id = user_id;
     });
     socket.on("updateLocation", async (data) => {
         console.log("Location update received:", data);
@@ -91,6 +97,33 @@ io.on("connection", (socket) => {
     });
 
    
+    const sendOrderDataToUserKafkaAndSocket = async () => {
+        try {
+            const { user_id } = socket;
+            console.log(user_id,"userogogogog")
+            const userOrders = await userOrder(user_id); 
+
+       
+            const payload = [{
+                topic: "userUpdate",
+                messages: [{ value: JSON.stringify(userOrders) }] 
+            }];
+            
+            userproducer.send(payload, (err, result) => {
+                if (err) {
+                    console.error("Error sending order data to Kafka:", err);
+                } else {
+                    console.log("Order data sent to Kafka:", result);
+                }
+            });
+
+          
+            socket.emit("userUpdate", userOrders);
+        } catch (error) {
+            console.error("Error sending order data to Kafka or emitting to Socket:", error.message);
+        }
+    };
+
     const sendOrderDataToKafkaAndSocket = async () => {
         try {
             const { delegate_id } = socket;
@@ -116,9 +149,8 @@ io.on("connection", (socket) => {
             console.error("Error sending order data to Kafka or emitting to Socket:", error.message);
         }
     };
-
-
     const orderInterval = setInterval(sendOrderDataToKafkaAndSocket, 5000);
+    const useInterval = setInterval(sendOrderDataToUserKafkaAndSocket, 5000);
 
    
     orderconsumer.on("message", (message) => {
@@ -131,11 +163,23 @@ io.on("connection", (socket) => {
             console.error("Error parsing and sending order data to client:", error.message);
         }
     });
+    
 
+    userconsumer.on("message", (message) => {
+        console.log("Received order data from Kafka:", message.value);
+        try {
+          
+            const userData = JSON.parse(message.value);
+            socket.emit("userUpdate", userData); 
+        } catch (error) {
+            console.error("Error parsing and sending order data to client:", error.message);
+        }
+    });
   
     socket.on("disconnect", () => {
         console.log("Client disconnected:", socket.id);
         clearInterval(orderInterval); 
+        clearInterval(useInterval); 
     });
 });
 

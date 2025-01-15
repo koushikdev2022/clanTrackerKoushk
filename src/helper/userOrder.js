@@ -13,16 +13,28 @@ const userOrder = async (user_id) => {
             },{
                 model:OrderItems,
                 as:"OrderItems",
+                require:false,
                 include:[{
                     model:Product,
-                    as:"Product"
+                    as:"Product",
+                    require:false
+                },{
+                    model:Order,
+                    as:"Order",
+                    require:false,
+                    include:[{
+                        model:UserAddress,
+                        as:"UserAddress",
+                        require:false
+                    }]
                 }]
             }],
             where:{
-                user_id:id
-            }
+                user_id:user_id,
+                status:{[Op.in]:[1,2]}
+            },
+            order:[['created_at','DESC']]
         }) 
-        
         return userDetails;
     } catch (error) {
         console.error("Error fetching orders:", error.message);
