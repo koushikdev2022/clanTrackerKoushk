@@ -15,6 +15,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey:"user_id",
         as:"Order"
       })
+      User.hasMany(models.DelegateOrderMap,{
+          foreignKey:"user_id",
+          as:"DelegateOrderMap"
+      })
     }
   }
   User.init({

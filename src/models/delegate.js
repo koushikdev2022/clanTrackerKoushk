@@ -5,7 +5,10 @@ module.exports = (sequelize, DataTypes) => {
 
     class Delegate extends Model {
         static associate(models) {
-
+            Delegate.hasMany(models.DelegateOrderMap,{
+                foreignKey:"delegates_id",
+                as:"DelegateOrderMap"
+            })
         }
     }
     Delegate.init({

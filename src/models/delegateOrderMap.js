@@ -8,7 +8,15 @@ module.exports = (sequelize, DataTypes) => {
             DelegateOrderMap.belongsTo(models.OrderItems,{
                 foreignKey:"order_id",
                 as:"OrderItems"
-              })
+            })
+            DelegateOrderMap.belongsTo(models.Delegate,{
+                foreignKey:"delegates_id",
+                as:"Delegate"
+            })
+            DelegateOrderMap.belongsTo(models.User,{
+                foreignKey:"user_id",
+                as:"User"
+            })
         }
     }
     DelegateOrderMap.init({

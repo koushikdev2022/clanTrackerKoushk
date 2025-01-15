@@ -41,4 +41,25 @@ orderconsumer.on("error", (err) => {
     console.error("Order Kafka Consumer Error:", err);
 });
 
-module.exports = { delegateproducer, delegateconsumer, orderproducer, orderconsumer };
+
+const userproducer = new kafka.Producer(kafkaClient);
+userproducer.on("ready",()=>{
+    console.log("User kafka Producer is ready");
+})
+
+userproducer.on("error",(err)=>{
+    console.log("User kafka Producer Error:", err);
+});
+
+const userconsumer = new kafka.Consumer(
+    kafkaClient,
+    [{topic:"userUpdate",position:0}],
+    {autoCommit:true}
+);
+
+userconsumer.on("error",(err)=>{
+     console.error("User kafka consumer error", err)
+});
+
+
+module.exports = { delegateproducer, delegateconsumer, orderproducer, orderconsumer,userproducer,userconsumer };

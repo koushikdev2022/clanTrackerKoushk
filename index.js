@@ -47,8 +47,6 @@ io.on("connection", (socket) => {
     socket.on('delegateInfo', (data) => {
         const { delegate_id } = data;
         console.log('Received delegate_id:', delegate_id);
-
-        // Store delegate_id in socket data, which can be used later
         socket.delegate_id = delegate_id;
     });
     socket.on("updateLocation", async (data) => {
