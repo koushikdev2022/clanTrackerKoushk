@@ -1,5 +1,13 @@
 const kafka = require("kafka-node");
 const { getAllOrders } = require("../helper/orderDetails"); // Assuming orderService exports the function
+const {pgClient} = require('../config/postGresConnect')
+
+
+
+
+
+
+
 
 const kafkaClient = new kafka.KafkaClient({ kafkaHost: `${process.env.KAFKA_HOST}` });
 
@@ -81,4 +89,22 @@ userIdconsumer.on("error",(err)=>{
      console.error("User Id kafka consumer error", err)
 });
 
-module.exports = { delegateproducer, delegateconsumer, orderproducer, orderconsumer,userproducer,userconsumer,userIdproducer, userIdconsumer};
+const pdproducer = new kafka.Producer(kafkaClient);
+pdproducer.on("ready", () => {
+  console.log("Kafka Producer for pd_update is connected and ready.");
+});
+pdproducer.on("error", (err) => {
+  console.error("Kafka Producer for pd_update Error:", err);
+});
+
+// Kafka Consumer (for consuming pd updates)
+const pdconsumer = new kafka.Consumer(
+  kafkaClient,
+  [{ topic: "pdUpdates", partition: 0 }],
+  { autoCommit: true }
+);
+pdconsumer.on("error", (err) => {
+  console.error("Kafka Consumer for pd_update Error:", err);
+});
+
+module.exports = { delegateproducer, delegateconsumer, orderproducer, orderconsumer,userproducer,userconsumer,userIdproducer, userIdconsumer,pdproducer,pdconsumer};

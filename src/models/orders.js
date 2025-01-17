@@ -41,6 +41,7 @@ module.exports = (sequelize, DataTypes) => {
         user_address_id: DataTypes.INTEGER,
         payment_status: DataTypes.INTEGER,
         vendor_id: DataTypes.BIGINT,
+        custom_order_id: DataTypes.STRING,
         created_at: {
             type: DataTypes.DATE,
             defaultValue: Sequelize.NOW,

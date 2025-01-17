@@ -36,6 +36,7 @@ module.exports = (sequelize, DataTypes) => {
     tax_amount: DataTypes.DECIMAL,
     net_price: DataTypes.DECIMAL,
     is_free: DataTypes.INTEGER,
+    custom_order_id: DataTypes.STRING,
     created_at: {
       type: DataTypes.DATE,
       defaultValue: Sequelize.NOW,

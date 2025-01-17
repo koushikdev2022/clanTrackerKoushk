@@ -82,7 +82,7 @@
                     map: map,
                     title: `Delivery Person ${id}`,
                     icon: {
-                        url: "https://img.freepik.com/free-vector/isolated-scooter-cartoon-design_1308-107030.jpg?t=st=1736939023~exp=1736942623~hmac=5936f6721cc7f0a9a2f939847af27e4d93345b541e32c17bf17ae581f848d45e&w=740", // Bike icon
+                        url: "https://imgd.aeplcdn.com/1056x594/n/cw/ec/103795/r15-right-side-view-7.png?isig=0&q=80&wm=3", // Bike icon
                         scaledSize: new google.maps.Size(40, 40),
                     },
                 });
@@ -95,7 +95,7 @@
             const socket = io('http://localhost:3014'); // Replace with your backend URL and port
             socket.on('connect', () => {
                 console.log('Connected to Socket.IO server:', socket.id);
-                const map_id = 4; // Replace this with an appropriate value to listen to the right map data
+                const map_id = 1; // Replace this with an appropriate value to listen to the right map data
                 socket.emit('userLiveInfo', { map_id });
             });
     
