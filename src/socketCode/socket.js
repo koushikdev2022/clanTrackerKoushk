@@ -47,8 +47,8 @@ delegateconsumer.on("error", (err) => {
   })();
 
 
-  let kafkaData = null; // Global cache for the orders
-let socketIntervals = {}; // Keep track of intervals per socket
+  let delegateKafkaData = {}; // Cache data for each delegate
+  let socketIntervals = {}; 
 
 // Function to fetch and send data to Kafka
 const fetchAndSendToKafka = async (delegate_id) => {
@@ -58,14 +58,15 @@ const fetchAndSendToKafka = async (delegate_id) => {
         // Fetch the latest orders for the delegate
         const orders = await getAllOrders(delegate_id);
 
+        // Prepare Kafka payload
         const payload = [
             {
                 topic: "orderUpdates",
-                messages: [{ value: JSON.stringify(orders) }],
+                messages: [{ value: JSON.stringify({ delegate_id, orders }) }],
             },
         ];
 
-        // Send the fetched data to Kafka
+        // Send data to Kafka
         await new Promise((resolve, reject) => {
             delegateproducer.send(payload, (err, result) => {
                 if (err) {
@@ -78,102 +79,118 @@ const fetchAndSendToKafka = async (delegate_id) => {
             });
         });
 
-        // Update the global kafkaData with the latest orders
-        kafkaData = orders;
-        console.log("Updated kafkaData with the latest orders:", orders);
+        // Update the delegate-specific Kafka data
+        delegateKafkaData[delegate_id] = orders;
+        console.log(`Updated delegateKafkaData for delegate_id ${delegate_id}:`, orders);
     } catch (error) {
         console.error("Error fetching or sending order data to Kafka:", error.message);
     }
 };
 
+
 // Function to emit data to the socket every second
 const emitToSocketEverySecond = (socket) => {
-    if (kafkaData) {
-        socket.emit("orderData", kafkaData); // Emit the latest data
+    const delegate_id = socket.delegate_id;
+    if (delegateKafkaData[delegate_id]) {
+        socket.emit("orderData", delegateKafkaData[delegate_id]); // Emit the latest data for this delegate
     } else {
-        console.warn("No Kafka data available to emit.");
+        console.warn(`No Kafka data available to emit for delegate_id: ${delegate_id}`);
     }
 };
-
 // On PostgreSQL notification
+// pgClient.on('notification', async (msg) => {
+//     console.log('Received PostgreSQL notification:', msg);
+
+//     const message = JSON.parse(msg.payload);
+//     const { action, record_id } = message;
+
+//     // Fetch and send updated data to Kafka for each delegate
+//     for (const socket of io.sockets.sockets.values()) {
+//         const delegate_id = socket.delegate_id; // Get the delegate_id stored in the socket
+
+//         if (delegate_id) {
+//             console.log(`Notifying delegate_id: ${delegate_id}`);
+
+//             // Fetch the latest data for the connected delegate and send it to Kafka
+//             await fetchAndSendToKafka(delegate_id);
+
+//             // Emit the update to the socket (new data post-update)
+//             socket.emit("orderDataUpdate", { delegate_id, action, record_id });
+
+//             // Immediately emit the updated data to the connected delegate
+//             socket.emit("orderData", kafkaData);
+//         }
+//     }
+
+//     // Prepare Kafka payload
+//     const kafkaPayload = [
+//         {
+//             topic: msg.channel === 'pd_update' ? 'pdUpdates' : 'orderUpdates',
+//             messages: [{ value: JSON.stringify({ action, record_id, timestamp: new Date() }) }]
+//         }
+//     ];
+
+//     // Send the appropriate Kafka message
+//     try {
+//         if (msg.channel === 'pd_update') {
+//             pdproducer.send(kafkaPayload, (err, data) => {
+//                 if (err) {
+//                     console.error('Error sending to Kafka (pd_update):', err);
+//                 } else {
+//                     console.log('Sent to pdUpdates:', data);
+//                 }
+//             });
+//         } else if (msg.channel === 'order_update') {
+//             orderproducer.send(kafkaPayload, (err, data) => {
+//                 if (err) {
+//                     console.error('Error sending to Kafka (order_update):', err);
+//                 } else {
+//                     console.log('Sent to orderUpdates:', data);
+//                 }
+//             });
+//         }
+//     } catch (error) {
+//         console.error('Error sending Kafka message:', error);
+//     }
+// });
 pgClient.on('notification', async (msg) => {
     console.log('Received PostgreSQL notification:', msg);
 
     const message = JSON.parse(msg.payload);
     const { action, record_id } = message;
 
-    // Fetch and send updated data to Kafka for each delegate
     for (const socket of io.sockets.sockets.values()) {
-        const delegate_id = socket.delegate_id; // Get the delegate_id stored in the socket
+        const delegate_id = socket.delegate_id;
 
         if (delegate_id) {
             console.log(`Notifying delegate_id: ${delegate_id}`);
 
-            // Fetch the latest data for the connected delegate and send it to Kafka
+            // Fetch new data for the delegate
             await fetchAndSendToKafka(delegate_id);
 
-            // Emit the update to the socket (new data post-update)
+            // Emit real-time updates to the delegate
             socket.emit("orderDataUpdate", { delegate_id, action, record_id });
-
-            // Immediately emit the updated data to the connected delegate
-            socket.emit("orderData", kafkaData);
+            socket.emit("orderData", delegateKafkaData[delegate_id]);
         }
-    }
-
-    // Prepare Kafka payload
-    const kafkaPayload = [
-        {
-            topic: msg.channel === 'pd_update' ? 'pdUpdates' : 'orderUpdates',
-            messages: [{ value: JSON.stringify({ action, record_id, timestamp: new Date() }) }]
-        }
-    ];
-
-    // Send the appropriate Kafka message
-    try {
-        if (msg.channel === 'pd_update') {
-            pdproducer.send(kafkaPayload, (err, data) => {
-                if (err) {
-                    console.error('Error sending to Kafka (pd_update):', err);
-                } else {
-                    console.log('Sent to pdUpdates:', data);
-                }
-            });
-        } else if (msg.channel === 'order_update') {
-            orderproducer.send(kafkaPayload, (err, data) => {
-                if (err) {
-                    console.error('Error sending to Kafka (order_update):', err);
-                } else {
-                    console.log('Sent to orderUpdates:', data);
-                }
-            });
-        }
-    } catch (error) {
-        console.error('Error sending Kafka message:', error);
     }
 });
-
 io.on("connection", (socket) => {
     console.log("Client connected:", socket.id);
     socket.on("delegateInfo", async (data) => {
         const { delegate_id } = data;
         console.log("Received delegate_id:", delegate_id);
 
-        // Store the delegate_id in the socket object
         socket.delegate_id = delegate_id;
 
-        // Fetch new data for the delegate and emit
         await fetchAndSendToKafka(delegate_id); // Fetch data for the given delegate
-        
-        // Clear any existing interval for this socket
+
         if (socketIntervals[socket.id]) {
             clearInterval(socketIntervals[socket.id]);
         }
 
-        // Start emitting new data every second
         socketIntervals[socket.id] = setInterval(() => emitToSocketEverySecond(socket), 1000);
-        
-        // Emit immediately to the socket when delegate connects
-        socket.emit("orderData", kafkaData);
+
+        socket.emit("orderData", delegateKafkaData[delegate_id]); // Emit delegate-specific data immediately
     });
     
     // When a delegate connects, store their ID and emit the data every second
