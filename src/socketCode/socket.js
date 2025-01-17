@@ -97,62 +97,7 @@ const emitToSocketEverySecond = (socket) => {
         console.warn(`No Kafka data available to emit for delegate_id: ${delegate_id}`);
     }
 };
-// On PostgreSQL notification
-// pgClient.on('notification', async (msg) => {
-//     console.log('Received PostgreSQL notification:', msg);
 
-//     const message = JSON.parse(msg.payload);
-//     const { action, record_id } = message;
-
-//     // Fetch and send updated data to Kafka for each delegate
-//     for (const socket of io.sockets.sockets.values()) {
-//         const delegate_id = socket.delegate_id; // Get the delegate_id stored in the socket
-
-//         if (delegate_id) {
-//             console.log(`Notifying delegate_id: ${delegate_id}`);
-
-//             // Fetch the latest data for the connected delegate and send it to Kafka
-//             await fetchAndSendToKafka(delegate_id);
-
-//             // Emit the update to the socket (new data post-update)
-//             socket.emit("orderDataUpdate", { delegate_id, action, record_id });
-
-//             // Immediately emit the updated data to the connected delegate
-//             socket.emit("orderData", kafkaData);
-//         }
-//     }
-
-//     // Prepare Kafka payload
-//     const kafkaPayload = [
-//         {
-//             topic: msg.channel === 'pd_update' ? 'pdUpdates' : 'orderUpdates',
-//             messages: [{ value: JSON.stringify({ action, record_id, timestamp: new Date() }) }]
-//         }
-//     ];
-
-//     // Send the appropriate Kafka message
-//     try {
-//         if (msg.channel === 'pd_update') {
-//             pdproducer.send(kafkaPayload, (err, data) => {
-//                 if (err) {
-//                     console.error('Error sending to Kafka (pd_update):', err);
-//                 } else {
-//                     console.log('Sent to pdUpdates:', data);
-//                 }
-//             });
-//         } else if (msg.channel === 'order_update') {
-//             orderproducer.send(kafkaPayload, (err, data) => {
-//                 if (err) {
-//                     console.error('Error sending to Kafka (order_update):', err);
-//                 } else {
-//                     console.log('Sent to orderUpdates:', data);
-//                 }
-//             });
-//         }
-//     } catch (error) {
-//         console.error('Error sending Kafka message:', error);
-//     }
-// });
 pgClient.on('notification', async (msg) => {
     console.log('Received PostgreSQL notification:', msg);
 
