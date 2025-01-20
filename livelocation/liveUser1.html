@@ -95,7 +95,7 @@
             const socket = io('http://localhost:3014'); // Replace with your backend URL and port
             socket.on('connect', () => {
                 console.log('Connected to Socket.IO server:', socket.id);
-                const map_id = 1; // Replace this with an appropriate value to listen to the right map data
+                const map_id = 7; // Replace this with an appropriate value to listen to the right map data
                 socket.emit('userLiveInfo', { map_id });
             });
     
