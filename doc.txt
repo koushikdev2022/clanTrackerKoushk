@@ -96,3 +96,4 @@ docker-compose logs kafka
 docker exec -it kafka /usr/bin/kafka-topics --create --topic delegateUpdates --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
 docker-compose ps
 docker-compose up -d
+docker exec -it kafka kafka-topics --list --bootstrap-server localhost:9092
