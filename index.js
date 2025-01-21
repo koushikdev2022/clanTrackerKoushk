@@ -23,5 +23,9 @@ app.use(load);
 
 
 server.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
-});
+    try {
+      console.log(`Server is running on http://localhost:${port}`);
+    } catch (error) {
+      console.error('Error in listen callback:', error);
+    }
+  });
