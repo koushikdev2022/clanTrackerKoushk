@@ -4,8 +4,8 @@
   "description": "trackingApp",
   "main": "index.js",
   "scripts": {
-    "test": "node index.js",
-    "start": "nodemon app"
+    "start": "node index.js",
+    "test": "nodemon app"
   },
   "author": "iksen",
   "license": "ISC",
