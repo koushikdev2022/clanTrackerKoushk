@@ -1,7 +1,6 @@
-const {Order,OrderItems,Product,ProductHsn,OrderDeliveryStatus,DelegateOrderMap,ProductImage,UserAddress,sequelize,Sequelize} = require("../../../../models");
+const {Order,OrderItems,Product,ProductHsn,OrderDeliveryStatus,sequelize} = require("../../../../models");
 const crypto = require('crypto');
 
-const {Op} = require("sequelize")
 const generateOrderId = () => {
   const randomString = crypto.randomBytes(4).toString('hex').toUpperCase(); // Random string
   const randomNumber = Math.floor(1000 + Math.random() * 9000); // 4-digit random number
@@ -13,78 +12,134 @@ const generateOrderId = () => {
 };
 exports.placeOrder = async (req, res) => {
   try {
-   const  delegate_id = 2
-   const orderItems = await OrderItems.findAll({
-                      include: [
-                          {
-                              model: Order,
-                              as: "Order",
-                              required: false,
-                              include: [
-                                  {
-                                      model: UserAddress,
-                                      as: "UserAddress",
-                                      required: false,
-                                  },
-                              ],
-                          },
-                          {
-                              model: Product,
-                              as: "Product",
-                              required: false,
-                              include: [
-                                  {
-                                      model: ProductImage,
-                                      as: "ProductImage",
-                                      required: false,
-                                  },
-                              ],
-                          },
-                          {
-                              model: DelegateOrderMap,
-                              as: "DelegateOrderMap",
-                              required: false,
-                              where: {
-                                  [Op.and]:[{
-                                      status: 0,
-                                      [Op.not]:{
-                                          delegates_id:delegate_id
-                                      }
-                                     
-                                  }
-                                      
-                                  ]
-                                  
-                              },
-                          },
-                      ],
-                      where: {
-                          [Sequelize.Op.or]: [
-                              Sequelize.literal(`
-                                  NOT EXISTS (
-                                      SELECT 1 
-                                      FROM "delegate_order_maps" AS "DelegateOrderMap"
-                                      WHERE "DelegateOrderMap"."order_id" = "OrderItems"."id"
-                                  )
-                              `),
-                              Sequelize.literal(`
-                                   EXISTS (
-                              SELECT 1 
-                              FROM "delegate_order_maps" AS "DelegateOrderMap"
-                              WHERE "DelegateOrderMap"."order_id" = "OrderItems"."id"
-                              AND "DelegateOrderMap"."status" = 0 
-                              AND "DelegateOrderMap"."delegates_id" <> ${delegate_id} 
-                          )
-                              `),
-                          ],
-                      },
-                      order:[["created_at","desc"]]
-                      
-                  });
+    const { user_address_id, delivery_mode, payment_status, order_type, products,data } = req?.body;
+    const vendorIdArray = []; 
+    const user_id = req?.user?.id
+    let order_delivery_status_id = 1
+    const vendorOrders = [];
+    for await (const product of products) {
+        const { product_id, quantity, unit_price, delivery_charges = 0, is_free = 0 } = product;
+        const productDetails = await Product.findOne({
+            where: { id: product_id, is_active: 1 },
+            include: [{ model: ProductHsn, as: "ProductHsn" }],
+        });
+        const { vendor_id, tax_apply, ProductHsn: productHsnDetails } = productDetails;
+        let grossPrice = quantity * unit_price;
+        let taxAmount = 0
+        let totalOrderPrice = 0;
+        let totalDeliveryCharges = 0;
+        let productHsnId = null;
+        const orderItems = [];
+     
+        if(productHsnDetails){
+          productHsnId = productHsnDetails?.id;
+          const taxPercentage = productHsnDetails?.percentage || 0;
+          taxAmount = grossPrice * (taxPercentage / 100);
+          if(tax_apply === "included"){
+            grossPrice = grossPrice - taxAmount;
+          }
+        }
+        const netPrice = grossPrice + taxAmount;
+        totalOrderPrice += netPrice + delivery_charges; 
+            orderItems.push({
+                  product_id,
+                  quantity,
+                  unit_price,
+                  delivery_charges,
+                  gross_price: grossPrice,
+                  tax_amount: taxAmount,
+                  net_price: netPrice,
+                  product_hsn_id: productHsnId,
+                  is_free,
+                  order_delivery_status_id: 1,
+            });
+        totalDeliveryCharges += delivery_charges;
+        if (!vendorIdArray.includes(vendor_id)) {
+            vendorIdArray.push(vendor_id);
+            const deliveryFilter = data.filter((databack)=>databack?.vendorId == vendor_id )
+            
+            const costm_order_id = await generateOrderId();
+
+            const orderData = {
+                user_id,
+                vendor_id: vendor_id,
+                user_address_id,
+                delivery_charges: delivery_mode == 'pickup' ? 0 : deliveryFilter?.[0]?.delivaryCharge,
+                total_price: totalOrderPrice,
+                payment_status,
+                order_date: new Date(),
+                delivery_mode,
+                order_type,
+                order_delivery_status_id,
+                custom_order_id: costm_order_id
+            };
+            const createOrder = await Order.create(orderData);
+            vendorOrders.push({
+                orderId: createOrder?.id,
+                vendorId: vendor_id,
+            });
+            
+            const costm_items_order_id = await generateOrderId();
+
+           const createItem =  await OrderItems.create({
+              order_id: createOrder?.id,
+              product_id,
+              quantity,
+              unit_price,
+              delivery_charges,
+              gross_price: grossPrice,
+              tax_amount: taxAmount,
+              net_price: netPrice,
+              product_hsn_id: productHsnId,
+              is_free,
+              order_delivery_status_id: 1,
+              custom_order_id: costm_items_order_id
+            });
+            await OrderDeliveryStatus.create(
+              {
+                order_id: createOrder?.id,
+                order_item_id:createItem?.id,
+                order_status_id: 1,
+              })
+    
+            
+        } else {
+            const orderJson = vendorOrders.find((vendOrd) => vendOrd.vendorId == vendor_id);
+            const oderId = orderJson.orderId
+            const orderDetails = await Order.findByPk(oderId)
+            let delivery_charges_sum = parseFloat(orderDetails?.delivery_charges) + parseFloat(totalDeliveryCharges)
+            let total_price_sum  = parseFloat(orderDetails?.total_price) +  parseFloat(totalOrderPrice)
+            await orderDetails.update({
+              total_price: total_price_sum
+            })
+            const costm_items_order_id = await generateOrderId();
+
+            const createItem = await OrderItems.create({
+              order_id: oderId,
+              product_id,
+              quantity,
+              unit_price,
+              delivery_charges,
+              gross_price: grossPrice,
+              tax_amount: taxAmount,
+              net_price: netPrice,
+              product_hsn_id: productHsnId,
+              is_free,
+              order_delivery_status_id: 1,
+              custom_order_id: costm_items_order_id
+            });
+       
+            await OrderDeliveryStatus.create(
+              {
+                order_id: oderId,
+                order_item_id:createItem?.id,
+                order_status_id: 1,
+              })
+        }
+    }
     return res.status(201).json({
         status: true,
         message: "Order placed successfully",
-        data:orderItems,
         status_code: 201
     })
   } catch (error) {
